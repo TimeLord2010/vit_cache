@@ -25,6 +25,10 @@ Here is an example of using `SingularCache` to fetch a configuration from an API
 import 'package:vit_cache/vit_cache.dart';
 
 class UserInfoCache extends SingularCache<Map<String, dynamic>> {
+
+  // Cache classes should be singletons, bacause the cache is at a class instance level.
+  UserInfoCache._();
+
   @override
   Future<Map<String, dynamic>> fetch() async {
     // Simulate a network call to fetch configuration
@@ -39,25 +43,26 @@ class UserInfoCache extends SingularCache<Map<String, dynamic>> {
   Duration get ttl => Duration(seconds: 10);
 }
 
+final userInfoCache = UserInfoCache._();
+
 void main() async {
-  var configCache = UserInfoCache();
 
   // Fetch and cache
-  var info = await configCache.get();
+  var info = await userInfoCache.get();
   print('Info: $info');
 
   // Cache hit
-  var info = await configCache.get();
+  var info = await userInfoCache.get();
   print('Info: $info');
 
   // Update the cached value manually.
-  configCache.update({
+  userInfoCache.update({
     'name': 'Dave',
     'auth_token': 'xxxxx'
   });
 
   // Clear the cache
-  configCache.clear();
+  userInfoCache.clear();
 }
 ```
 
@@ -69,6 +74,10 @@ Here is an example of using `MultiTimedCacheModel` to fetch multiple configurati
 import 'package:vit_cache/vit_cache.dart';
 
 class ConfigCache extends MultiTimedCacheModel<String, Map<String, dynamic>> {
+
+  // Cache classes should be singletons, bacause the cache is at a class instance level.
+  ConfigCache._();
+
   @override
   Future<Map<String, dynamic>> fetch(String key) async {
     // Simulate a network call to fetch configuration
@@ -87,8 +96,9 @@ class ConfigCache extends MultiTimedCacheModel<String, Map<String, dynamic>> {
   Duration get ttl => Duration(seconds: 10);
 }
 
+final configCache = ConfigCache._();
+
 void main() async {
-  var configCache = ConfigCache();
 
   // Fetch and cache a single configuration
   var config = await configCache.get('service1');

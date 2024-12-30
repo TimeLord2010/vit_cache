@@ -1,3 +1,5 @@
+import 'package:vit_cache/src/errors/cache_item_missing.dart';
+
 import 'timed_cache_model.dart';
 
 /// A cache model that supports multiple keys and values with a time-to-live (ttl).
@@ -34,12 +36,31 @@ abstract class MultiTimedCacheModel<K, V> extends TimedCacheModel {
     return cachedItem.value;
   }
 
-  /// Retrieves values for the given [keys] from the cache or fetches them if not present or expired.
-  Future<Map<K, V>> getMany(Iterable<K> keys) async {
+  /// Retrieves values for the given [keys] from the cache or fetches them if
+  /// not present or expired.
+  ///
+  /// If [assumeAllPresent] is set to `true`, the method will throw an
+  /// [CacheItemMissingException] if any of the keys are not found in the cache.
+  Future<Map<K, V>> getMany(
+    Iterable<K> keys, {
+    bool assumeAllPresent = false,
+  }) async {
     await setMany(keys);
-    return {
-      for (var key in keys) key: _internalCache[key]!.value,
-    };
+
+    Map<K, V> result = {};
+
+    for (var key in keys) {
+      var cachedItem = _internalCache[key];
+      if (cachedItem == null) {
+        if (assumeAllPresent) {
+          throw CacheItemMissingException(key);
+        }
+        continue;
+      }
+      result[key] = cachedItem.value;
+    }
+
+    return result;
   }
 
   /// Fetches all keys that are not already cached.
