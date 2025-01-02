@@ -65,28 +65,32 @@ abstract class MultiTimedCacheModel<K, V> extends TimedCacheModel {
 
   /// Fetches all keys that are not already cached.
   Future<void> setMany(Iterable<K> keys) async {
+    // Getting keys that did not expire.
     var validKeys = <K>{};
     for (var MapEntry(key: key, value: value) in _internalCache.entries) {
       if (didExpire(value.createdAt)) {
+        // No need to maintain expired items
         _internalCache.remove(key);
         continue;
       }
       validKeys.add(key);
     }
 
+    // Getting keys that will need to be fetched
     var keysToFetch = <K>{};
     for (var key in keys) {
       if (validKeys.contains(key)) {
+        // Exclude keys that are already cached
         continue;
       }
       keysToFetch.add(key);
     }
+    if (keysToFetch.isEmpty) return;
 
-    if (keysToFetch.isEmpty) {
-      return;
-    }
-
+    // Fetching
     var foundValues = await fetchMany(keysToFetch);
+
+    // Saving fetched values
     for (var MapEntry(key: key, value: value) in foundValues.entries) {
       _internalCache[key] = MultiCacheItem(value);
     }
