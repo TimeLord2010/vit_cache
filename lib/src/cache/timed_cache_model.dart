@@ -9,6 +9,6 @@ abstract class TimedCacheModel {
   bool didExpire(DateTime? lastCache) {
     if (lastCache == null) return true;
     var dt = DateTime.now();
-    return dt.difference(lastCache).inSeconds > ttl.inSeconds;
+    return dt.difference(lastCache).inMilliseconds > ttl.inMilliseconds;
   }
 }

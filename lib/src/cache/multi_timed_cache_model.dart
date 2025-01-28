@@ -67,7 +67,9 @@ abstract class MultiTimedCacheModel<K, V> extends TimedCacheModel {
   Future<void> setMany(Iterable<K> keys) async {
     // Getting keys that did not expire.
     var validKeys = <K>{};
-    for (var MapEntry(key: key, value: value) in _internalCache.entries) {
+
+    var entries = _internalCache.entries.toList();
+    for (var MapEntry(key: key, value: value) in entries) {
       if (didExpire(value.createdAt)) {
         // No need to maintain expired items
         _internalCache.remove(key);
@@ -113,7 +115,8 @@ abstract class MultiTimedCacheModel<K, V> extends TimedCacheModel {
   void clear() => _internalCache.clear();
 
   void clearExpired() {
-    for (var MapEntry(key: key, value: value) in _internalCache.entries) {
+    var entries = _internalCache.entries.toList();
+    for (var MapEntry(key: key, value: value) in entries) {
       if (didExpire(value.createdAt)) {
         _internalCache.remove(key);
       }
