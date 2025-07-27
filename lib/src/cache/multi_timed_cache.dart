@@ -1,3 +1,4 @@
+import 'package:vit_cache/src/data/models/cached_item.dart';
 import 'package:vit_cache/src/errors/cache_item_missing.dart';
 
 import 'timed_cache_model.dart';
@@ -5,22 +6,37 @@ import 'timed_cache_model.dart';
 /// A cache model that supports multiple keys and values with a time-to-live (ttl).
 ///
 /// The ttl is applied to each individual item in the cache separetly.
-abstract class MultiTimedCacheModel<K, V> extends TimedCacheModel {
+class MultiTimedCache<K, V> extends TimedCacheModel {
   /// Internal cache storage.
-  final Map<K, MultiCacheItem<V>> _internalCache = {};
+  final Map<K, CachedItem<V>> _internalCache = {};
+
+  /// Private function to fetch a single value.
+  final Future<V> Function(K key) _fetch;
+
+  /// Private function to fetch multiple values.
+  final Future<Map<K, V>> Function(Iterable<K> keys) _fetchMany;
+
+  final Duration _ttl;
+
+  /// Creates a new [MultiTimedCache] with the given [ttl] and fetch functions.
+  MultiTimedCache({
+    required Duration ttl,
+    required Future<V> Function(K key) fetch,
+    required Future<Map<K, V>> Function(Iterable<K> keys) fetchMany,
+  })  : _fetch = fetch,
+        _fetchMany = fetchMany,
+        _ttl = ttl;
+
+  @override
+  Duration get ttl => _ttl;
 
   /// Provides access to the internal cache.
-  Map<K, MultiCacheItem<V>> get cache => _internalCache;
+  Map<K, CachedItem<V>> get cache => _internalCache;
 
-  /// Fetches a value for the given [key].
-  ///
-  /// This method does not have cache and should not be used outside of the cache model.
-  Future<V> fetch(K key);
-
-  /// Fetches values for the given [keys].
-  ///
-  /// This method does not have cache and should not be used outside of the cache model.
-  Future<Map<K, V>> fetchMany(Iterable<K> keys);
+  /// Returns a simplified version of the [cache] without metadata.
+  Map<K, V> get simpleCache {
+    return {for (var entry in cache.entries) entry.key: entry.value.value};
+  }
 
   /// Retrieves a value for the given [key] from the cache or fetches it if not present or expired.
   Future<V> get(K key) async {
@@ -45,7 +61,7 @@ abstract class MultiTimedCacheModel<K, V> extends TimedCacheModel {
     Iterable<K> keys, {
     bool assumeAllPresent = false,
   }) async {
-    await setMany(keys);
+    await ensureCached(keys);
 
     Map<K, V> result = {};
 
@@ -64,7 +80,7 @@ abstract class MultiTimedCacheModel<K, V> extends TimedCacheModel {
   }
 
   /// Fetches all keys that are not already cached.
-  Future<void> setMany(Iterable<K> keys) async {
+  Future<void> ensureCached(Iterable<K> keys) async {
     // Getting keys that did not expire.
     var validKeys = <K>{};
 
@@ -90,23 +106,16 @@ abstract class MultiTimedCacheModel<K, V> extends TimedCacheModel {
     if (keysToFetch.isEmpty) return;
 
     // Fetching
-    var foundValues = await fetchMany(keysToFetch);
+    var foundValues = await _fetchMany(keysToFetch);
 
     // Saving fetched values
     for (var MapEntry(key: key, value: value) in foundValues.entries) {
-      _internalCache[key] = MultiCacheItem(value);
+      _internalCache[key] = CachedItem(value);
     }
   }
 
   /// Saves a value for the given [key] in the cache.
-  void save(K key, V value) => _internalCache[key] = MultiCacheItem(value);
-
-  /// Fetches a value for the given [key] and sets it in the cache.
-  Future<V> _fetchAndSet(K key) async {
-    var item = await fetch(key);
-    _internalCache[key] = MultiCacheItem(item);
-    return item;
-  }
+  void save(K key, V value) => _internalCache[key] = CachedItem(value);
 
   /// Invalidates the cache for the given [key].
   void invalidate(K key) => _internalCache.remove(key);
@@ -114,6 +123,10 @@ abstract class MultiTimedCacheModel<K, V> extends TimedCacheModel {
   /// Clears the entire cache.
   void clear() => _internalCache.clear();
 
+  /// Removes expired items from the internal cache to manage memory and maintain data integrity.
+  ///
+  /// Proactively cleans up stale entries that have exceeded their time-to-live (TTL),
+  /// preventing unnecessary memory usage and potential issues with outdated data.
   void clearExpired() {
     var entries = _internalCache.entries.toList();
     for (var MapEntry(key: key, value: value) in entries) {
@@ -122,15 +135,11 @@ abstract class MultiTimedCacheModel<K, V> extends TimedCacheModel {
       }
     }
   }
-}
 
-/// Represents a cached item with its value and creation time.
-class MultiCacheItem<T> {
-  /// The cached value.
-  final T value;
-
-  /// The time when the item was created.
-  final DateTime createdAt = DateTime.now();
-
-  MultiCacheItem(this.value);
+  /// Fetches a value for the given [key] and sets it in the cache.
+  Future<V> _fetchAndSet(K key) async {
+    var item = await _fetch(key);
+    _internalCache[key] = CachedItem(item);
+    return item;
+  }
 }

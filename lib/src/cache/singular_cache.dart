@@ -3,7 +3,7 @@ import 'timed_cache_model.dart';
 /// A cache model for a single value with a time-to-live (ttl).
 ///
 /// This class provides methods to fetch, update, and clear the cached value.
-abstract class SingularCache<T> extends TimedCacheModel {
+class SingularCache<T> extends TimedCacheModel {
   /// Internal cache storage for the single value.
   T? _internalCache;
 
@@ -13,12 +13,20 @@ abstract class SingularCache<T> extends TimedCacheModel {
   /// The time when the value was last fetched.
   DateTime? _lastFetch;
 
-  /// Fetches the value to cache.
-  ///
-  /// Always performs the slow operation that is to get the underlying value.
-  ///
-  /// This method is intended for internal use of [SingularCache].
-  Future<T> fetch();
+  /// Private function to fetch the value.
+  final Future<T> Function() _fetch;
+
+  /// Creates a new [SingularCache] with the given [ttl] and [fetch] function.
+  SingularCache({
+    required Duration ttl,
+    required Future<T> Function() fetch,
+  })  : _fetch = fetch,
+        _ttl = ttl;
+
+  final Duration _ttl;
+
+  @override
+  Duration get ttl => _ttl;
 
   /// Retrieves the cached value or fetches it if not present or expired.
   Future<T> get() async {
@@ -52,7 +60,7 @@ abstract class SingularCache<T> extends TimedCacheModel {
   Future<T> _fetchAndSave() async {
     try {
       _internalCache = null;
-      var value = await fetch();
+      var value = await _fetch();
       _internalCache = value;
       _lastFetch = DateTime.now();
       return value;

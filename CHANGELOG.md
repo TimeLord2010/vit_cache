@@ -1,3 +1,22 @@
+## 2.0.0
+
+**BREAKING CHANGES:**
+- Converted `SingularCache` from abstract class to concrete class with constructor parameters
+- Converted `MultiTimedCacheModel` to `MultiTimedCache` concrete class with constructor parameters
+- Renamed `MultiTimedCacheModel.setMany()` to `MultiTimedCache.ensureCached()`
+- Replaced internal `MultiCacheItem` with generic `CachedItem` class
+- Added `MultiTimedCache.simpleCache` getter for accessing cache without metadata
+- Updated API to use function parameters instead of method overrides for fetch operations
+
+**New Features:**
+- Added `CachedItem<T>` model class for better cache item representation
+- Improved constructor-based API for easier usage without inheritance
+
+**Migration Guide:**
+- Replace `class MyCache extends SingularCache<T>` with `SingularCache<T>(ttl: duration, fetch: () async => ...)`
+- Replace `class MyCache extends MultiTimedCacheModel<K, V>` with `MultiTimedCache<K, V>(ttl: duration, fetch: (key) async => ..., fetchMany: (keys) async => ...)`
+- Replace `setMany()` calls with `ensureCached()`
+
 ## 1.1.1
 
 - Fixed ttl calculating when dealing with milliseconds.
