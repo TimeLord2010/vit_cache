@@ -2,10 +2,11 @@ A Dart package for caching single values and multiple key-value pairs with a tim
 
 ## Features
 
-- Cache a single value with a TTL.
+- Cache a single value with a TTL using constructor-based configuration.
 - Cache multiple key-value pairs with individual TTLs.
 - Automatically fetch and update the cache when it expires.
 - Manually update or clear the cache.
+- Memory management with expired item cleanup.
 
 ## Getting started
 
@@ -19,47 +20,32 @@ flutter pub add vit_cache
 
 ### Singular Cache
 
-Here is an example of using `SingularCache` to fetch a configuration from an API:
+Here is an example of using `SingularCache` to fetch user information from an API:
 
 ```dart
 import 'package:vit_cache/vit_cache.dart';
 
-class UserInfoCache extends SingularCache<Map<String, dynamic>> {
-
-  // Cache classes should be singletons, bacause the cache is at a class instance level.
-  UserInfoCache._();
-
-  @override
-  Future<Map<String, dynamic>> fetch() async {
-    // Simulate a network call to fetch configuration
-    await Future.delayed(Duration(seconds: 2));
-    return {
-        'name': 'Dave',
-        'auth_token': 'xxxxx'
-    };
-  }
-
-  @override
-  Duration get ttl => Duration(seconds: 10);
-}
-
-final userInfoCache = UserInfoCache._();
-
 void main() async {
+  // Create a cache with a fetch function
+  var userInfoCache = SingularCache<Map<String, dynamic>>(
+    ttl: Duration(seconds: 10),
+    fetch: () async {
+      // Simulate a network call to fetch user info
+      await Future.delayed(Duration(seconds: 2));
+      return {'name': 'Dave', 'auth_token': 'xxxxx'};
+    },
+  );
 
-  // Fetch and cache
+  // Fetch and cache user info
   var info = await userInfoCache.get();
-  print('Info: $info');
+  print('User Info: $info');
 
-  // Cache hit
-  var info = await userInfoCache.get();
-  print('Info: $info');
+  // Cache hit - no network call needed
+  info = await userInfoCache.get();
+  print('User Info: $info');
 
-  // Update the cached value manually.
-  userInfoCache.update({
-    'name': 'Dave',
-    'auth_token': 'xxxxx'
-  });
+  // Update the cached value manually
+  userInfoCache.update({'name': 'Dave', 'auth_token': 'yyyyy'});
 
   // Clear the cache
   userInfoCache.clear();
@@ -68,51 +54,44 @@ void main() async {
 
 ### Multi Cache
 
-Here is an example of using `MultiTimedCacheModel` to fetch multiple configurations from an API:
+Here is an example of using `MultiTimedCache` to fetch multiple configurations from an API:
 
 ```dart
 import 'package:vit_cache/vit_cache.dart';
 
-class ConfigCache extends MultiTimedCacheModel<String, Map<String, dynamic>> {
-
-  // Cache classes should be singletons, bacause the cache is at a class instance level.
-  ConfigCache._();
-
-  @override
-  Future<Map<String, dynamic>> fetch(String key) async {
-    // Simulate a network call to fetch configuration
-    await Future.delayed(Duration(seconds: 2));
-    return {'apiUrl': 'https://api.example.com/$key', 'timeout': 5000};
-  }
-
-  @override
-  Future<Map<String, Map<String, dynamic>>> fetchMany(Iterable<String> keys) async {
-    // Simulate a network call to fetch multiple configurations
-    await Future.delayed(Duration(seconds: 2));
-    return {for (var key in keys) key: {'apiUrl': 'https://api.example.com/$key', 'timeout': 5000}};
-  }
-
-  @override
-  Duration get ttl => Duration(seconds: 10);
-}
-
-final configCache = ConfigCache._();
-
 void main() async {
+  // Create a multi-key cache with a fetch function
+  var configCache = MultiTimedCache<String, Map<String, dynamic>>(
+    ttl: Duration(seconds: 10),
+    fetchMany: (keys) async {
+      // Simulate a network call to fetch multiple configurations
+      await Future.delayed(Duration(seconds: 2));
+      return {
+        for (var key in keys)
+          key: {'apiUrl': 'https://api.example.com/$key', 'timeout': 5000}
+      };
+    },
+  );
 
   // Fetch and cache a single configuration
   var config = await configCache.get('service1');
   print('Config for service1: $config');
 
-  // Fetch and cache multiple configurations
-  await configCache.setMany(['service1', 'service2']);
-  var config1 = await configCache.get('service1');
-  var config2 = await configCache.get('service2');
-  print('Config for service1: $config1');
-  print('Config for service2: $config2');
+  // Fetch and cache multiple configurations at once
+  await configCache.ensureCached(['service1', 'service2', 'service3']);
+
+  // Get multiple cached values
+  var configs = await configCache.getMany(['service1', 'service2']);
+  print('Configs: $configs');
+
+  // Save a value directly to cache
+  configCache.save('service4', {'apiUrl': 'https://api.example.com/service4', 'timeout': 3000});
 
   // Clear the cache for a specific key
   configCache.invalidate('service1');
+
+  // Clear expired items only
+  configCache.clearExpired();
 
   // Clear the entire cache
   configCache.clear();
@@ -121,29 +100,28 @@ void main() async {
 
 ## Methods
 
-### Singular Cache
+### SingularCache
 
 | Method               | Description                                                                 |
 |----------------------|-----------------------------------------------------------------------------|
-| `Future<T> fetch()`  | Abstract method to fetch the value to cache. Must be implemented by subclasses. |
 | `Future<T> get()`    | Retrieves the cached value or fetches it if not present or expired.         |
-| `void update(T value)` | Updates the cached value with the given value.                             |
+| `void update(T value)` | Updates the cached value with the given value and resets the TTL.                             |
 | `void updateIfCached(T Function(T oldValue) func)` | Updates the cached value using the provided function if it is cached and not expired. |
 | `void clear()`       | Clears the cached value.                                                    |
 
-### Multi Cache
+### MultiTimedCache
 
 | Method               | Description                                                                 |
 |----------------------|-----------------------------------------------------------------------------|
-| `Future<V> fetch(K key)`  | Abstract method to fetch the value for a given key. Must be implemented by subclasses. |
-| `Future<Map<K, V>> fetchMany(Iterable<K> keys)` | Abstract method to fetch multiple values for given keys. Must be implemented by subclasses. |
 | `Future<V> get(K key)`    | Retrieves the cached value for a given key or fetches it if not present or expired.         |
-| `Future<Map<K, V>> getMany(Iterable<K> keys)` | Retries the cached values for the given key set. Non-existent or expired values are fetched.  |
-| `Future<void> setMany(Iterable<K> keys)` | Fetches and caches multiple values for given keys.                             |
+| `Future<Map<K, V>> getMany(Iterable<K> keys, {bool assumeAllPresent = false})` | Retrieves cached values for the given key set. Non-existent or expired values are fetched. If `assumeAllPresent` is true, throws an exception if any key is missing.  |
+| `Future<void> ensureCached(Iterable<K> keys)` | Fetches all keys that are not already cached or have expired.                             |
 | `void save(K key, V value)` | Saves a value for a given key in the cache.                             |
 | `void invalidate(K key)` | Invalidates the cache for a given key.                             |
 | `void clear()`       | Clears the entire cache.                                                    |
-| `void clearExpired()` | Clears expired items from the cache.                                                    |
+| `void clearExpired()` | Removes expired items from the cache to manage memory and maintain data integrity.                                                    |
+| `Map<K, CachedItem<V>> get cache` | Provides access to the internal cache with metadata.                                                    |
+| `Map<K, V> get simpleCache` | Returns a simplified version of the cache without metadata.                                                    |
 
 ## Additional information
 

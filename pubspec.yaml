@@ -1,6 +1,6 @@
 name: vit_cache
 description: A Dart package for caching single values and multiple key-value pairs with a time-to-live (TTL) mechanism.
-version: 2.1.0
+version: 2.1.1
 repository: https://github.com/TimeLord2010/vit_cache
 
 environment:
