@@ -10,9 +10,6 @@ class MultiTimedCache<K, V> extends TimedCacheModel {
   /// Internal cache storage.
   final Map<K, CachedItem<V>> _internalCache = {};
 
-  /// Private function to fetch a single value.
-  final Future<V> Function(K key) _fetch;
-
   /// Private function to fetch multiple values.
   final Future<Map<K, V>> Function(Iterable<K> keys) _fetchMany;
 
@@ -21,10 +18,8 @@ class MultiTimedCache<K, V> extends TimedCacheModel {
   /// Creates a new [MultiTimedCache] with the given [ttl] and fetch functions.
   MultiTimedCache({
     required Duration ttl,
-    required Future<V> Function(K key) fetch,
     required Future<Map<K, V>> Function(Iterable<K> keys) fetchMany,
-  })  : _fetch = fetch,
-        _fetchMany = fetchMany,
+  })  : _fetchMany = fetchMany,
         _ttl = ttl;
 
   @override
@@ -138,7 +133,11 @@ class MultiTimedCache<K, V> extends TimedCacheModel {
 
   /// Fetches a value for the given [key] and sets it in the cache.
   Future<V> _fetchAndSet(K key) async {
-    var item = await _fetch(key);
+    var result = await _fetchMany([key]);
+    var item = result[key];
+    if (item == null) {
+      throw Exception('Failed to fetch value for key: $key');
+    }
     _internalCache[key] = CachedItem(item);
     return item;
   }

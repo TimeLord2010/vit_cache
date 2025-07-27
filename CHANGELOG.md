@@ -1,3 +1,13 @@
+## 2.1.0
+
+**Improvements:**
+- Removed redundant `fetch` parameter from `MultiTimedCache` constructor
+- Simplified API by using only `fetchMany` function for all fetch operations
+
+**Migration Guide:**
+- Remove the `fetch` parameter from `MultiTimedCache` constructor calls
+- Ensure your `fetchMany` function can handle single-key requests (it should already work as-is)
+
 ## 2.0.0
 
 **BREAKING CHANGES:**
